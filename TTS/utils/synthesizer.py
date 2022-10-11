@@ -198,6 +198,7 @@ class Synthesizer(object):
         """
         start_time = time.time()
         wavs = []
+        sentences = None
 
         if not text and not reference_wav:
             raise ValueError(
@@ -265,6 +266,8 @@ class Synthesizer(object):
         use_gl = self.vocoder_model is None
 
         if not reference_wav:
+            duration = 0 # in milliseconds
+            sentences = []
             for sen in sens:
                 # synthesize voice
                 outputs = synthesis(
@@ -311,7 +314,12 @@ class Synthesizer(object):
                     waveform = trim_silence(waveform, self.tts_model.ap)
 
                 wavs += list(waveform)
+                sentence_start = duration
+                duration += round(waveform.shape[0]*1000 / self.tts_config.audio["sample_rate"])
+                sentence_end = duration
+                sentences.append((sen, sentence_start, sentence_end))
                 wavs += [0] * 10000
+                duration += round(10000*1000 / self.tts_config.audio["sample_rate"])
         else:
             # get the speaker embedding or speaker id for the reference wav file
             reference_speaker_embedding = None
@@ -376,4 +384,5 @@ class Synthesizer(object):
         audio_time = len(wavs) / self.tts_config.audio["sample_rate"]
         print(f" > Processing time: {process_time}")
         print(f" > Real-time factor: {process_time / audio_time}")
-        return wavs
+        # also return list of tuple (sentence, start time, end time)
+        return wavs, sentences
